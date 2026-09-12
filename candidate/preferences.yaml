@@ -1,0 +1,6 @@
+# Preferences are optional and must be explicitly supplied by the user.
+# No explicit job-search preferences were found in the reviewed Drive material.
+# Keep these empty until the user supplies them.
+target_roles: []
+locations: []
+remote: null

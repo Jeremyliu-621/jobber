@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+data/*.sqlite3
+data/*.sqlite3-shm
+data/*.sqlite3-wal
+.env
+.env.*
+!.env.example
+candidate/resumes/*.aux
+candidate/resumes/*.log
+candidate/resumes/*.out
+data/resume-qa/

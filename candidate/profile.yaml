@@ -1,0 +1,34 @@
+# Structured candidate facts.
+# Unknown facts stay null or empty. Do not replace them with guesses.
+
+identity:
+  # Imported from the current resume; legal identity remains intentionally unset.
+  legal_name: null
+  preferred_name: Jeremy
+  email: jmy.liu@mail.utoronto.ca
+  phone: "+1 647-978-3453"
+
+education:
+  - institution: University of Toronto
+    program: Computer Engineering
+    degree: Bachelor of Applied Science
+    start_date: "2025-09"
+    graduation_date: "2030-05"
+    location: Toronto, Ontario
+    # Drive resumes disagree (3.04 vs 3.42); keep this unknown until confirmed.
+    gpa: null
+
+work_authorization:
+  canada:
+    authorized: null
+    sponsorship_required: null
+    notes: null
+  usa:
+    authorized: null
+    sponsorship_required: null
+    notes: null
+
+links:
+  github: https://github.com/jeremyliu-621
+  linkedin: https://linkedin.com/in/jmyl
+  portfolio: https://jeremyliu.space

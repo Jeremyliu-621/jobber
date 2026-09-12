@@ -1,0 +1,172 @@
+\documentclass[letterpaper,11pt]{article}
+
+\usepackage{latexsym}
+\usepackage[T1]{fontenc}
+\usepackage[sfdefault]{carlito}
+\usepackage[empty]{fullpage}
+\usepackage{titlesec}
+\usepackage[usenames,dvipsnames]{color}
+\usepackage{enumitem}
+\setlist[itemize]{label=\textbullet}
+\usepackage[hidelinks]{hyperref}
+\usepackage{fancyhdr}
+\usepackage[english]{babel}
+\usepackage{tabularx}
+\usepackage{fontawesome5}
+\usepackage{gensymb}
+\input{glyphtounicode}
+
+\definecolor{sectioncolor}{RGB}{31,111,139}
+\definecolor{ghgray}{RGB}{90,90,90}
+
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+
+\addtolength{\oddsidemargin}{-0.5in}
+\addtolength{\evensidemargin}{-0.5in}
+\addtolength{\textwidth}{1in}
+\addtolength{\topmargin}{-.5in}
+\addtolength{\textheight}{1.0in}
+
+\urlstyle{same}
+\raggedbottom
+\raggedright
+\setlength{\tabcolsep}{0in}
+
+\titleformat{\section}{
+  \vspace{-4pt}\bfseries\raggedright\large\color{sectioncolor}
+}{}{0em}{}[{\color{black}\titlerule[0.4pt]} \vspace{-5pt}]
+
+\pdfgentounicode=1
+
+\newcommand{\resumeItem}[1]{\item\small{#1 \vspace{-2pt}}}
+
+
+\newcommand{\resumeSubheading}[4]{
+  \vspace{-2pt}\item
+  \begin{tabular*}{\textwidth}[t]{l@{\extracolsep{\fill}}r}
+    \textbf{#1} & \textbf{#2} \\
+    \textit{\small#3} & \textit{\small #4} \\
+  \end{tabular*}\vspace{-7pt}
+}
+
+\newcommand{\resumeProjectHeading}[2]{
+  \item
+  \begin{tabular*}{\textwidth}{l@{\extracolsep{\fill}}r}
+    \small#1 & \small\textit{#2} \\
+  \end{tabular*}\vspace{-7pt}
+}
+
+\newcommand{\resumeSubHeadingListStart}{\begin{itemize}[leftmargin=0in, label={}]}
+\newcommand{\resumeSubHeadingListEnd}{\end{itemize}}
+\newcommand{\resumeItemListStart}{\begin{itemize}}
+\newcommand{\resumeItemListEnd}{\end{itemize}\vspace{-5pt}}
+
+\begin{document}
+
+%----------HEADING----------
+\begin{center}
+  \textbf{\Huge Jeremy Liu} \\ \vspace{4pt}
+  \small
+  \faPhone*\ (647) 978-3453 \quad
+  \href{mailto:jmy.liu@mail.utoronto.ca}{\faEnvelope\ \underline{jmy.liu@mail.utoronto.ca}} \quad
+  \href{https://www.linkedin.com/in/jmyl}{\faLinkedin\ \underline{linkedin.com/in/jmyl}} \quad
+  \href{https://github.com/jeremyliu-621}{\faGithub\ \underline{github.com/jeremyliu-621}} \quad
+  \href{https://jeremyliu.space/}{\faGlobe\ \underline{jeremyliu.space}}
+\end{center}
+
+%-----------EDUCATION-----------
+\section{Education}
+\resumeSubHeadingListStart
+  \resumeSubheading
+    {University of Toronto}{Sep. 2025 -- Expected May 2030}
+    {Bachelor of Applied Science in Computer Engineering}{Toronto, ON}
+\resumeSubHeadingListEnd
+
+%-----------EXPERIENCE-----------
+\section{Work Experience}
+\resumeSubHeadingListStart
+
+\resumeSubheading
+{AI Engineering Intern}{Aug. 2026 -- Present}
+{Futurify}{Toronto, ON}
+\resumeItemListStart
+  \resumeItem{Developed an \textbf{RFP agent} with persistent context, using PostgreSQL, pgvector, and Obsidian to self-learn company knowledge.}
+  \resumeItem{Built a \textbf{21-tool MCP interface} for Claude Code and Codex, enabling authenticated RFP discovery and preparation across multi-organization workspaces with approval-gated execution.}
+\resumeItemListEnd
+
+\resumeSubheading
+{Software Engineer Intern}{Apr 2026 -- July 2026}
+{Chatforce}{Toronto, ON}
+\resumeItemListStart
+  \resumeItem{Increased company \textbf{SEO/AEO visibility by 4100\%} organically, and increased the number of \textbf{sign-ups by 3x}}
+  \resumeItem{Spearheaded a complete \textbf{product overhaul deployed across 100\% of generated games}, introducing screenshot-to-game generation, image-to-component pipelines, and a Godot-to-TypeScript engine migration that improved game quality by 3× and user experience by 5×.}
+  \resumeItem{Built core generation features used in Chatforce's screenshot-to-game product, supporting \textbf{LLM routing}, asset generation, auth flows, billing webhooks, and customer-facing product \textbf{APIs}}
+\resumeItemListEnd
+
+\resumeSubheading
+{AI/ML Research Intern}{Jan. 2026 -- Present}
+{MannLab, University of Toronto}{Toronto, ON}
+\resumeItemListStart
+  \resumeItem{Co-authored \textbf{2 research papers} on \textbf{EEG biofeedback} and consumer \textbf{BCI safety} by conducting wearable computing and \textbf{XR} research under Professor Steve Mann, submitted to \textbf{IEEE ISMAR} and \textbf{NeurIPS}}
+  \resumeItem{Built \textit{Cocaine Buzzkill}, an XR game in Unity with real-time \textbf{EEG} biofeedback, demoed to \textbf{200+ people}}
+  \resumeItem{Identified unsafe TTA adaptation patterns by auditing \textbf{8 methods} across \textbf{9,144 EEG windows} and implementing a \textbf{3-pass activation patching diagnostic} in \textbf{PyTorch} to detect artifact-mediated failure circuits pre/post adaptation}
+\resumeItemListEnd
+
+\resumeSubheading
+{Software Engineer}{Sep. 2025 -- Jan. 2026}
+{Robotics for Space Exploration}{Toronto, ON}
+\resumeItemListStart
+  \resumeItem{Implemented a \textbf{ROS2-PyQt GUI} for a robotic arm with  joint monitoring, camera feeds, and 3D path-planning visualization}
+  \resumeItem{Wrote unit tests using ROS and contributed to the team achieving \textbf{93.96\%} on the \textbf{University Rover Challenge SAR}, \textbf{20+ points} above the qualification cutoff}
+\resumeItemListEnd
+
+\resumeSubHeadingListEnd
+
+%-----------PROJECTS-----------
+\section{Projects}
+\resumeSubHeadingListStart
+
+\resumeProjectHeading
+{\href{https://github.com/Jeremyliu-621/paper-cuts}{{\footnotesize\textcolor{ghgray}{\faGithub}}\ \textbf{Paper Cuts}} $|$ \textbf{{UC Berkeley --- 1st Place Overall (\$5,000) + Best UI/UX}}}{Python, Pytorch, FastAPI, Redis, AWS Trainium, Javascript}
+\resumeItemListStart
+  \resumeItem{Made a \textbf{game engine} that converts user sketches into playable \textbf{game assets} by training an \textbf{SDXL diffusion model} on AWS Trainium and developed a cascading \textbf{CNN/VLM} recognition pipeline with \textbf{Redis HNSW vector memory}.}
+  \resumeItem{Trained ``Moose'', a \textbf{LoRA-tuned model} that understands drawings and codes them with game mechanics in under 500 ms.}
+\resumeItemListEnd
+
+\resumeProjectHeading
+{\href{https://github.com/Jeremyliu-621/ensemble}{{\footnotesize\textcolor{ghgray}{\faGithub}}\ \textbf{Ensemble}} $|$ \textbf{{Hack the 6ix --- Top 5 Overall}}}{Python, QNX Raspberry Pi, Qwen LoRa}
+\resumeItemListStart
+  \resumeItem{Built an \textbf{orchestra conducting system} that synchronizes audience's phones via WebSockets, using a \textbf{QNX-based Raspberry Pi}, Arduino R4 wand, and a \textbf{TinyML model} to translate physical gestures into live wand control.}
+
+  \resumeItem{Fine-tuned and deployed a \textbf{Qwen LoRA} model on a \textbf{Fireworks H200} using SFT and GRPO over classical music theory, generating musical bars in real time with 453 ms latency.}
+
+\resumeItemListEnd
+
+\resumeProjectHeading
+{\href{https://github.com/Jeremyliu-621/soon}{{\footnotesize\textcolor{ghgray}{\faGithub}}\ \textbf{Aucctopus}} $|$ \textbf{SOON 2026 Winner}}{TypeScript, Neo4j, OpenRouter, Composio}
+\resumeItemListStart
+  \resumeItem{Reduces iteration time on consumer products for companies by \textbf{90\%}, using swarm intelligence models to evaluate \textbf{3D models}, \textbf{UGC videos}, and \textbf{AR previews} to predict virality.} Optimized costs and latency for \textbf{10+ APIs}.
+\resumeItemListEnd
+
+\resumeProjectHeading
+{\href{https://github.com/Jeremyliu-621/straw}{{\footnotesize\textcolor{ghgray}{\faGithub}}\ \textbf{Straw}} $|$ \emph{ \textbf{50+} on waitlist}}{TypeScript, Supabase, BullMQ, Redis, Docker}
+\resumeItemListStart
+  \resumeItem{Task outsourcing platform where \textbf{Hermes/Openclaws} communicate and compete against one another using \textbf{APIs} and \textbf{MCPs}}
+\resumeItemListEnd
+
+\resumeSubHeadingListEnd
+
+%-----------TECHNICAL SKILLS-----------
+\section{Technical Skills}
+\begin{itemize}[leftmargin=0in, label={}]
+  \small{\item{
+    \textbf{Languages}{: Python, C, JavaScript, TypeScript, MATLAB, SQL} \\
+    \textbf{Frameworks \& Libraries}{: React, Next.js, Node.js, FastAPI, Tailwind, ROS2, PyTorch, Scikit-learn, Pandas, NumPy, Matplotlib, OpenCV} \\
+    \textbf{Tools \& Databases}{: Git, Docker, Linux, AWS, Unity, PostgreSQL, Redis, Neo4j, Supabase, Postman, Figma, Claude}
+  }}
+\end{itemize}
+
+\end{document}
