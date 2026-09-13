@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Protocol
 
@@ -45,6 +46,27 @@ class BrowserReplayPage:
     api_path: str
     start_time_ms: int | None = None
     end_time_ms: int | None = None
+
+
+@dataclass(frozen=True)
+class HumanQuestion:
+    """A question that the browser agent cannot safely answer by itself."""
+
+    application_id: str | None
+    question: str
+    context: str = ""
+    allowed_options: tuple[str, ...] = ()
+
+
+HumanEscalationHandler = Callable[[HumanQuestion], str | None | Awaitable[str | None]]
+
+
+class HumanEscalationRequired(RuntimeError):
+    """Raised when browser work needs an answer and no answer was returned."""
+
+    def __init__(self, question: HumanQuestion) -> None:
+        self.question = question
+        super().__init__(question.question)
 
 
 class BrowserProvider(Protocol):

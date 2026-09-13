@@ -37,3 +37,7 @@ def test_approved_answer_records_a_real_timestamp(tmp_path: Path) -> None:
         ).fetchone()
     assert row["approved_at"]
     assert row["approved_at"] != "CURRENT_TIMESTAMP"
+    answers = applications.answers(application_id)
+    assert len(answers) == 1
+    assert answers[0].question_text == "Why this company?"
+    assert answers[0].final_text == "User supplied answer."

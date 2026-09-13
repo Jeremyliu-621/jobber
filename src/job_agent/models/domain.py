@@ -26,6 +26,25 @@ class Job(DomainModel):
     raw_payload: dict = Field(default_factory=dict)
 
 
+class OpportunitySection(DomainModel):
+    """One source-grounded, display-ready section of a job opportunity."""
+
+    key: str
+    label: str
+    kind: Literal["paragraph", "list"]
+    items: list[str] = Field(min_length=1)
+    source_text: str
+
+
+class OpportunityDocument(DomainModel):
+    """The structured opportunity derived from one normalized job record."""
+
+    job_id: str
+    source_hash: str
+    extractor_version: str
+    sections: list[OpportunitySection] = Field(min_length=1)
+
+
 class JobCriterion(DomainModel):
     id: str
     job_id: str

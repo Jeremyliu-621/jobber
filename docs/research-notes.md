@@ -137,6 +137,62 @@ before a high-value application is prepared. No API key or login is required.
 - Hermes integration is recorded as a local MCP server rather than a Hermes-specific native plugin.
 - Browser profiles/contexts are site-scoped identities and require conservative locking.
 - Browserbase is wired through `BrowserbaseProvider`; a live create/release health check succeeded on 2026-09-09. Context IDs are sent under `browserSettings.context` with `persist=true`.
-- The optional `BrowserUseRunner` attaches Browser Use's `Browser` to Browserbase's `connectUrl`. Packet preparation and safety checks remain usable without a model key or Browser Use installation.
+- The optional `BrowserUseRunner` attaches Browser Use's `Browser` to Browserbase's `connectUrl`, registers guarded candidate and human-escalation tools, and uses `ChatBrowserUse` by default when `BROWSER_USE_API_KEY` is configured. Packet preparation and safety checks remain usable without a model key or Browser Use installation.
 - Greenhouse, Lever, and Ashby are the first deterministic discovery sources. Workday remains a later tenant-specific adapter.
-- The local `job-agent-mcp` server is registered in Hermes over stdio and currently exposes eleven domain tools.
+- The local `job-agent-mcp` server is registered in Hermes over stdio and currently exposes fifteen domain tools, including the model-backed `run_application` entry point.
+
+## Productization and hosted execution research
+
+The current repository remains a local single-user vertical slice. It has no
+workspace or tenant identity, authenticated API, object storage, queue, hosted
+document pipeline, or deployment image. The local web server is intentionally
+read-only and uses `Path.cwd()`, SQLite WAL, and filesystem-backed candidate
+sources. These are local-mode defaults, not a public-service boundary.
+
+For a multi-user product, the preferred connection model is a local companion:
+the user authenticates Codex or Claude locally, chooses a document root, and
+pairs an outbound companion connection with a hosted workspace. This keeps CLI
+credentials and local documents on the user’s machine. A hosted worker can be a
+later opt-in mode using explicit API-key or enterprise credentials and an
+ephemeral sandbox. The product should not request uploaded Codex or Claude
+credential cache files.
+
+OpenAI documents ChatGPT sign-in and API-key paths for Codex CLI, warns that
+cached login material can contain access tokens, and warns against exposing
+Codex execution in untrusted or public environments. Claude Code documents
+non-interactive `claude -p`/Agent SDK execution, local credential handling, and
+the limitations of its subscription setup token. Codex app-server exposes a
+useful local protocol, but its WebSocket transport is currently experimental
+and unsupported for production use. These facts support a local companion
+boundary instead of a public hosted app-server socket.
+
+Cloud Run is a plausible first hosted runtime: stateless HTTP services for the
+API, Jobs for bounded batch work, and worker pools or a managed queue for
+background processing. Supabase Auth/Postgres/Storage is a plausible early
+data plane because JWT authentication and RLS can protect both rows and
+workspace-scoped files. The deployment alternative is a containerized API
+with independent managed Postgres and S3-compatible storage.
+
+The proposed durable model is `workspace_id` on every row, immutable document
+versions, private object storage, source spans for extracted claims, an
+idempotent task queue, and isolated workers for parsing, model execution, and
+browser sessions. A vector database remains deferred until retrieval tests
+demonstrate a need.
+
+See [`docs/deployment-brainstorm.md`](deployment-brainstorm.md) for the staged
+architecture, provider boundary, isolation rules, and first implementation
+slice.
+
+Sources:
+
+- [OpenAI Codex authentication](https://learn.chatgpt.com/docs/auth)
+- [OpenAI Codex CLI](https://learn.chatgpt.com/docs/codex/cli)
+- [Codex app-server](https://github.com/openai/codex/blob/main/codex-rs/app-server/README.md)
+- [Claude Code authentication](https://code.claude.com/docs/en/team)
+- [Claude Code programmatic execution](https://code.claude.com/docs/en/headless)
+- [Claude Agent SDK hosting](https://code.claude.com/docs/en/agent-sdk/hosting)
+- [Claude Agent SDK secure deployment](https://code.claude.com/docs/en/agent-sdk/secure-deployment)
+- [Cloud Run overview](https://docs.cloud.google.com/run/docs/overview/what-is-cloud-run)
+- [Cloud Run Jobs](https://cloud.google.com/run/docs/create-jobs)
+- [Supabase Auth architecture](https://supabase.com/docs/guides/auth/architecture)
+- [Supabase Storage access control](https://supabase.com/docs/guides/storage/security/access-control)

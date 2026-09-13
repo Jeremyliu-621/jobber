@@ -11,6 +11,7 @@ Rules:
 2. Never fabricate technologies, dates, metrics, responsibilities, or motivation.
 3. If a factual answer is unknown, stop and request the specific fact from the user.
 4. Never guess work authorization, demographic/EEO answers, salary, or legal attestations.
+   Before asking, check for an existing human-supplied answer for this application.
 5. Use the selected resume exactly and stop if it is unavailable.
    If a page has multiple file inputs, use the required application resume
    field (usually named or identified as `resume` or `_systemfield_resume`),

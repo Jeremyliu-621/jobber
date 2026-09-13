@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Jobber job research index" />
+    <title>jobber</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="site">
+      <header class="masthead">
+        <a class="wordmark" id="wordmark" href="#jobs">jobber</a>
+        <nav class="nav" aria-label="Views">
+          <button class="nav-link is-active" type="button" data-view="jobs">jobs</button>
+          <button class="nav-link" type="button" data-view="apps">apps</button>
+        </nav>
+        <div class="masthead-meta">
+          <span class="connection">
+            <span class="signal" id="signal" aria-hidden="true"></span>
+            <span id="connection-state">connecting</span>
+          </span>
+          <button class="link-button" id="refresh" type="button">refresh</button>
+        </div>
+      </header>
+
+      <div class="rule" aria-hidden="true"></div>
+
+      <section class="view" data-panel="jobs">
+        <header class="section-intro">
+          <h1>jobs</h1>
+          <p class="stats" aria-label="Job counts">
+            <span id="jobs-total">—</span> jobs ·
+            <span id="jobs-evaluated">—</span> scored ·
+            <span id="apps-needs-user">—</span> review
+          </p>
+        </header>
+
+        <form class="filters" id="filters">
+          <label class="search-field">
+            <span class="sr-only">search</span>
+            <input id="search" type="search" placeholder="search" aria-label="Search jobs" autocomplete="off" />
+          </label>
+          <label>
+            <span class="sr-only">source</span>
+            <select id="source" aria-label="Source">
+              <option value="all">all sources</option>
+            </select>
+          </label>
+          <label>
+            <span class="sr-only">state</span>
+            <select id="status" aria-label="State">
+              <option value="all">all states</option>
+              <option value="discovered">new</option>
+              <option value="evaluated">scored</option>
+            </select>
+          </label>
+          <button id="clear" class="link-button" type="button">clear</button>
+        </form>
+
+        <div class="results-line">
+          <span id="result-count">loading…</span>
+          <span>open an entry</span>
+        </div>
+
+        <div class="entry-list" id="jobs-list" aria-live="polite">
+          <p class="empty">loading…</p>
+        </div>
+      </section>
+
+      <section class="view" data-panel="apps" hidden>
+        <header class="section-intro">
+          <h1>apps</h1>
+          <p class="stats"><span id="apps-total">—</span> total</p>
+        </header>
+
+        <form class="filters" id="app-filters">
+          <label class="search-field">
+            <span class="sr-only">search applications</span>
+            <input id="app-search" type="search" placeholder="search" aria-label="Search applications" autocomplete="off" />
+          </label>
+          <label>
+            <span class="sr-only">tier</span>
+            <select id="app-tier" aria-label="Application tier">
+              <option value="all">all tiers</option>
+              <option value="tier_a">tier a</option>
+              <option value="tier_b">tier b</option>
+              <option value="tier_c">tier c</option>
+              <option value="skip">skip</option>
+            </select>
+          </label>
+          <label>
+            <span class="sr-only">state</span>
+            <select id="app-status" aria-label="Application state">
+              <option value="all">all states</option>
+            </select>
+          </label>
+          <button id="app-clear" class="link-button" type="button">clear</button>
+        </form>
+
+        <div class="results-line">
+          <span id="apps-result-count">loading…</span>
+          <span>open an entry</span>
+        </div>
+
+        <div class="entry-list" id="apps-list" aria-live="polite">
+          <p class="empty">loading…</p>
+        </div>
+        <p class="note">human submits</p>
+      </section>
+
+      <footer class="footer">
+        <span>updated</span>
+        <span id="synced">—</span>
+      </footer>
+    </main>
+
+    <dialog id="job-dialog" aria-labelledby="dialog-title">
+      <div class="dialog-top">
+        <button id="close-dialog" class="close" type="button">close</button>
+        <p id="dialog-company" class="dialog-company"></p>
+        <h2 id="dialog-title">loading…</h2>
+      </div>
+
+      <dl id="dialog-meta" class="detail-list"></dl>
+
+      <section class="assessment-section" aria-label="Assessment">
+        <p class="dialog-label">assessment</p>
+        <dl id="assessment-list" class="assessment-list"></dl>
+      </section>
+
+      <section class="dialog-section description-section">
+        <p class="dialog-label">description</p>
+        <div id="description-content" class="description-content"></div>
+      </section>
+
+      <section class="browser-section" aria-label="Browser replay">
+        <p class="dialog-label">browser</p>
+        <div id="browser-actions" class="browser-actions"></div>
+        <p id="browser-message" class="browser-message">no replay</p>
+        <div id="live-view-wrap" class="live-view-wrap" hidden>
+          <iframe
+            id="live-view"
+            title="Live browser view"
+            sandbox="allow-same-origin allow-scripts"
+          ></iframe>
+        </div>
+        <div id="replay-wrap" class="replay-wrap" hidden>
+          <video id="replay-video" controls playsinline preload="metadata"></video>
+          <p id="replay-label" class="browser-message"></p>
+        </div>
+      </section>
+
+      <div class="dialog-links">
+        <a id="source-link" href="#" target="_blank" rel="noreferrer">source ↗</a>
+        <a id="apply-link" href="#" target="_blank" rel="noreferrer" hidden>apply ↗</a>
+      </div>
+    </dialog>
+
+    <script src="/app.js" defer></script>
+  </body>
+</html>

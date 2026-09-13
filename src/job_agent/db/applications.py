@@ -36,6 +36,15 @@ class ResumeRecord:
     version: str
 
 
+@dataclass(frozen=True)
+class ApplicationAnswerRecord:
+    id: str
+    question_id: str
+    question_text: str
+    final_text: str
+    status: str
+
+
 class ApplicationRepository:
     def __init__(self, database: Database) -> None:
         self.database = database
@@ -210,6 +219,32 @@ class ApplicationRepository:
                 ),
             )
         return answer_id
+
+    def answers(self, application_id: str) -> list[ApplicationAnswerRecord]:
+        """Return human-usable answers already recorded for an application."""
+
+        self.database.migrate()
+        with self.database.session() as connection:
+            rows = connection.execute(
+                """
+                SELECT a.id, a.question_id, q.question_text, a.final_text, a.status
+                FROM application_answers a
+                JOIN application_questions q ON q.id = a.question_id
+                WHERE q.application_id = ? AND a.final_text IS NOT NULL
+                ORDER BY a.created_at
+                """,
+                (application_id,),
+            ).fetchall()
+        return [
+            ApplicationAnswerRecord(
+                id=row["id"],
+                question_id=row["question_id"],
+                question_text=row["question_text"],
+                final_text=row["final_text"],
+                status=row["status"],
+            )
+            for row in rows
+        ]
 
     def add_event(
         self,

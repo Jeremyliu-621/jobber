@@ -35,6 +35,11 @@ the application is below the configured tier threshold. A registered source
 also needs a real local rendered PDF before browser preparation can pass.
 `BrowserUseRunner` is an optional adapter that attaches Browser Use to the
 returned CDP URL and always releases the Browser Use session.
+The runner now registers Browser Use custom actions for `ask_user`, verified
+candidate-fact lookup, approved candidate-knowledge search, and retrieval of
+previous human answers for the same application. The model still
+chooses which visible control to use and how to navigate the form; the Python
+layer only supplies guarded tools and transport.
 Before the runner starts, `BrowserbaseProvider` uploads the selected rendered
 resume through the Browserbase Session Uploads API and passes the resulting
 session-local path to Browser Use. ATS pages with multiple file inputs should
@@ -53,6 +58,14 @@ API key never reaches a client.
 The runner result can move an application to `ready_to_submit`, but no code
 path clicks or submits a final application button. The MCP and CLI approval
 operations record human review and keep submission disabled.
+
+The runnable CLI path is `application run APPLICATION_ID`. It constructs the
+configured `ChatBrowserUse` model from `BROWSER_USE_API_KEY` and
+`BROWSER_USE_MODEL`, connects it to Browserbase, and prompts in the terminal
+when the agent calls `ask_user`. A caller without a human callback receives a
+`needs_user` result and an event-log question instead of a guessed answer. A
+later `run_application` call can use an answer recorded by the MCP
+`answer_application_question` tool.
 
 ---
 
@@ -145,6 +158,11 @@ ask_user(
 ```
 
 The worker should pause safely while waiting for an answer rather than restarting the browser flow from scratch when possible.
+
+In the current implementation, a configured callback keeps the Browser Use
+session alive while awaiting the answer. If no callback is available, the
+worker records the question, returns `needs_user`, and releases the session;
+durable cross-process browser resumption remains a later task.
 
 ---
 

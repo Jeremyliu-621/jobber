@@ -7,6 +7,7 @@ browser-use installation during planning and evaluation.
 
 from __future__ import annotations
 
+import inspect
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -15,7 +16,12 @@ from typing import Protocol
 from job_agent.db import ApplicationRepository, Database
 from job_agent.models import ApplicationPlan
 
-from .base import BrowserProvider
+from .base import (
+    BrowserProvider,
+    HumanEscalationHandler,
+    HumanEscalationRequired,
+    HumanQuestion,
+)
 from .policy import build_browser_task
 
 
@@ -24,10 +30,12 @@ class BrowserRunner(Protocol):
         self,
         *,
         task: str,
-        cdp_url: str,
-        max_steps: int,
-        available_file_paths: list[str] | None = None,
-    ) -> str:
+            cdp_url: str,
+            max_steps: int,
+            available_file_paths: list[str] | None = None,
+            application_id: str | None = None,
+            human_escalation: HumanEscalationHandler | None = None,
+        ) -> str:
         """Run a Browser Use task and return a redacted result summary."""
 
 
@@ -61,6 +69,7 @@ class ControlledBrowserWorker:
         apply_url: str,
         profile_id: str | None = None,
         max_steps: int = 40,
+        human_escalation: HumanEscalationHandler | None = None,
     ) -> BrowserRunResult:
         if plan.importance.tier == "skip":
             return BrowserRunResult(
@@ -159,6 +168,10 @@ class ControlledBrowserWorker:
                 cdp_url=session.cdp_url,
                 max_steps=max_steps,
                 available_file_paths=available_files,
+                application_id=plan.application_id,
+                human_escalation=self._human_escalation_handler(
+                    plan.application_id, human_escalation
+                ),
             )
             self.applications.update_status(plan.application_id, "ready_to_submit")
             self.applications.add_event(
@@ -169,6 +182,24 @@ class ControlledBrowserWorker:
                 plan.application_id,
                 session.session_id,
                 summary,
+                live_view_url=live_view_url,
+            )
+        except HumanEscalationRequired as error:
+            self.applications.update_status(plan.application_id, "needs_user")
+            self.applications.add_event(
+                plan.application_id,
+                "browser_paused_for_user",
+                {
+                    "question": error.question.question,
+                    "context": error.question.context,
+                    "allowed_options": list(error.question.allowed_options),
+                },
+            )
+            return BrowserRunResult(
+                "needs_user",
+                plan.application_id,
+                session.session_id,
+                f"Human input required: {error.question.question}",
                 live_view_url=live_view_url,
             )
         except Exception as error:
@@ -230,6 +261,65 @@ class ControlledBrowserWorker:
                             "message": _safe_error_message(error),
                         },
                     )
+
+    def _human_escalation_handler(
+        self,
+        application_id: str,
+        handler: HumanEscalationHandler | None,
+    ) -> HumanEscalationHandler:
+        async def handle(question: HumanQuestion) -> str | None:
+            question_record = self.applications.create_question(
+                application_id=application_id,
+                question_text=question.question,
+                question_type="human_escalation",
+                required=True,
+                source_page=question.context[:500] or None,
+            )
+            self.applications.update_status(application_id, "needs_user")
+            self.applications.add_event(
+                application_id,
+                "human_escalation_requested",
+                {
+                    "question_id": question_record.id,
+                    "context": question.context,
+                    "allowed_options": list(question.allowed_options),
+                },
+            )
+            if handler is None:
+                return None
+            try:
+                answer = handler(question)
+                if inspect.isawaitable(answer):
+                    answer = await answer
+            except Exception as error:
+                self.applications.add_event(
+                    application_id,
+                    "human_escalation_error",
+                    {
+                        "error_type": type(error).__name__,
+                        "message": _safe_error_message(error),
+                    },
+                )
+                return None
+            if answer is None or not str(answer).strip():
+                return None
+            answer_id = self.applications.save_answer(
+                question_id=question_record.id,
+                generated_text=None,
+                final_text=str(answer),
+                status="user_supplied",
+                grounding_score=1.0,
+                style_score=1.0,
+            )
+            self.applications.update_status(application_id, "preparing")
+            self.applications.add_event(
+                application_id,
+                "user_answered",
+                {"question_id": question_record.id, "answer_id": answer_id},
+            )
+            return str(answer)
+
+        return handle
 
     def _available_resume_paths(self, plan: ApplicationPlan) -> list[str]:
         """Expose only the selected, rendered resume to a Browser Use runner."""

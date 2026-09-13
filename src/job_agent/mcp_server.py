@@ -67,6 +67,21 @@ def evaluate_job(job_id: str) -> dict[str, Any]:
 
 
 @mcp.tool()
+def get_job_opportunity(job_id: str) -> dict[str, Any] | None:
+    """Read the persisted, source-grounded sections for one job opportunity."""
+
+    opportunity = JobAgentService().get_opportunity(job_id)
+    return opportunity.model_dump(mode="json") if opportunity else None
+
+
+@mcp.tool()
+def extract_job_opportunity(job_id: str) -> dict[str, Any]:
+    """Extract and persist structured sections for one normalized job."""
+
+    return JobAgentService().materialize_opportunity(job_id).model_dump(mode="json")
+
+
+@mcp.tool()
 def prepare_application(job_id: str) -> str:
     """Build a reviewable application packet and stop before browser submission."""
 
@@ -78,6 +93,22 @@ def get_application_status(application_id: str) -> dict[str, Any]:
     """Read the current application state and browser session metadata."""
 
     return JobAgentService().application_status(application_id).__dict__
+
+
+@mcp.tool()
+def run_application(
+    application_id: str,
+    apply_url: str | None = None,
+    max_steps: int = 40,
+) -> dict[str, Any]:
+    """Run the model-backed browser worker and stop before final submission."""
+
+    result = JobAgentService().run_browser(
+        application_id,
+        apply_url=apply_url,
+        max_steps=max_steps,
+    )
+    return result.__dict__
 
 
 @mcp.tool()

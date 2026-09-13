@@ -15,6 +15,9 @@ from job_agent.browser import (
     BrowserSessionInfo,
     BrowserUseRunner,
     ControlledBrowserWorker,
+    HumanEscalationRequired,
+    HumanQuestion,
+    create_browser_llm,
 )
 from job_agent.config import Settings
 from job_agent.db import ApplicationRepository, Database, JobRepository, ResumeRecord
@@ -222,9 +225,26 @@ def test_browser_use_runner_uses_remote_mode_and_stops_on_error(monkeypatch) -> 
         async def run(self, *, max_steps: int):
             raise RuntimeError("runner failed")
 
+    class FakeActionResult:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    class FakeTools:
+        def __init__(self):
+            self.actions = {}
+
+        def action(self, description: str, **kwargs):
+            def decorator(function):
+                self.actions[function.__name__] = function
+                return function
+
+            return decorator
+
     fake_module = ModuleType("browser_use")
     fake_module.Agent = FakeAgent
     fake_module.Browser = FakeBrowser
+    fake_module.ActionResult = FakeActionResult
+    fake_module.Tools = FakeTools
     monkeypatch.setitem(sys.modules, "browser_use", fake_module)
 
     with pytest.raises(RuntimeError, match="runner failed"):
@@ -244,6 +264,53 @@ def test_browser_use_runner_uses_remote_mode_and_stops_on_error(monkeypatch) -> 
     }
     assert state["agent_kwargs"]["available_file_paths"] == ["C:/resume.pdf"]
     assert state["stopped"] is True
+
+
+def test_browser_use_runner_rejects_history_without_final_result(monkeypatch) -> None:
+    class FakeBrowser:
+        def __init__(self, **kwargs):
+            pass
+
+        async def stop(self):
+            pass
+
+    class FakeActionResult:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    class FakeTools:
+        def action(self, description: str, **kwargs):
+            def decorator(function):
+                return function
+
+            return decorator
+
+    class FakeHistory:
+        def final_result(self):
+            return None
+
+    class FakeAgent:
+        def __init__(self, **kwargs):
+            pass
+
+        async def run(self, *, max_steps: int):
+            return FakeHistory()
+
+    fake_module = ModuleType("browser_use")
+    fake_module.Agent = FakeAgent
+    fake_module.Browser = FakeBrowser
+    fake_module.ActionResult = FakeActionResult
+    fake_module.Tools = FakeTools
+    monkeypatch.setitem(sys.modules, "browser_use", fake_module)
+
+    with pytest.raises(RuntimeError, match="did not produce a final result"):
+        asyncio.run(
+            BrowserUseRunner(object()).run(
+                task="prepare the form",
+                cdp_url="wss://example/cdp",
+                max_steps=2,
+            )
+        )
 
 
 def test_worker_stops_before_submission(tmp_path: Path) -> None:
@@ -281,6 +348,8 @@ def test_worker_stops_before_submission(tmp_path: Path) -> None:
             cdp_url: str,
             max_steps: int,
             available_file_paths: list[str] | None = None,
+            application_id: str | None = None,
+            human_escalation=None,
         ) -> str:
             assert "stop before final submission" in task
             assert available_file_paths == ["/tmp/.uploads/backend.pdf"]
@@ -351,6 +420,109 @@ def test_worker_stops_before_submission(tmp_path: Path) -> None:
     assert "browser_replay_available" in event_types
 
 
+def test_browser_use_runner_can_pause_for_and_receive_a_human_answer(monkeypatch) -> None:
+    state: dict[str, object] = {}
+
+    class FakeBrowser:
+        def __init__(self, **kwargs):
+            pass
+
+        async def stop(self) -> None:
+            pass
+
+    class FakeActionResult:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    class FakeTools:
+        def __init__(self):
+            self.actions = {}
+
+        def action(self, description: str, **kwargs):
+            def decorator(function):
+                self.actions[function.__name__] = function
+                return function
+
+            return decorator
+
+    class FakeHistory:
+        def final_result(self):
+            return "prepared"
+
+    class FakeAgent:
+        def __init__(self, **kwargs):
+            state["tools"] = kwargs["tools"]
+
+        async def run(self, *, max_steps: int):
+            result = await state["tools"].actions["ask_user"](
+                "Are you authorized to work in Canada?",
+                "Application asks a work authorization question.",
+                ["Yes", "No"],
+            )
+            state["ask_result"] = result
+            return FakeHistory()
+
+    fake_module = ModuleType("browser_use")
+    fake_module.Agent = FakeAgent
+    fake_module.Browser = FakeBrowser
+    fake_module.ActionResult = FakeActionResult
+    fake_module.Tools = FakeTools
+    monkeypatch.setitem(sys.modules, "browser_use", fake_module)
+
+    asked = []
+
+    async def answer(question):
+        asked.append(question)
+        return "Yes"
+
+    summary = asyncio.run(
+        BrowserUseRunner(object(), human_escalation=answer).run(
+            task="prepare the form",
+            cdp_url="wss://example/cdp",
+            max_steps=2,
+            application_id="application-1",
+        )
+    )
+
+    assert summary == "prepared"
+    assert asked[0].application_id == "application-1"
+    assert asked[0].allowed_options == ("Yes", "No")
+    assert state["ask_result"].kwargs["extracted_content"] == (
+        "Human answer (use exactly as provided): Yes"
+    )
+
+
+def test_create_browser_llm_uses_configured_browser_use_model(monkeypatch) -> None:
+    state: dict[str, object] = {}
+
+    class FakeChatBrowserUse:
+        def __init__(self, **kwargs):
+            state["kwargs"] = kwargs
+
+    fake_module = ModuleType("browser_use")
+    fake_module.ChatBrowserUse = FakeChatBrowserUse
+    monkeypatch.setitem(sys.modules, "browser_use", fake_module)
+
+    llm = create_browser_llm(
+        Settings(
+            browserbase_api_key=None,
+            browserbase_project_id=None,
+            browserbase_api_base_url="https://api.browserbase.com",
+            browserbase_session_timeout_seconds=900,
+            browser_use_api_key="model-key",
+            browser_use_model="test-browser-model",
+            browser_use_base_url="https://llm.example.com",
+        )
+    )
+
+    assert isinstance(llm, FakeChatBrowserUse)
+    assert state["kwargs"] == {
+        "model": "test-browser-model",
+        "api_key": "model-key",
+        "base_url": "https://llm.example.com",
+    }
+
+
 def test_worker_refuses_failed_quality_gate(tmp_path: Path) -> None:
     class FakeProvider:
         created = False
@@ -385,3 +557,100 @@ def test_worker_refuses_failed_quality_gate(tmp_path: Path) -> None:
 
     assert result.status == "needs_user"
     assert "quality gate" in result.summary
+
+
+def test_worker_records_unanswered_human_escalation(tmp_path: Path) -> None:
+    class FakeProvider:
+        async def create_session(self, *, profile_id=None, metadata=None):
+            return BrowserSessionInfo("session-ask", "wss://connect.example/session-ask")
+
+        async def close_session(self, session_id: str) -> None:
+            pass
+
+    class FakeRunner:
+        async def run(
+            self,
+            *,
+            task: str,
+            cdp_url: str,
+            max_steps: int,
+            available_file_paths: list[str] | None = None,
+            application_id: str | None = None,
+            human_escalation=None,
+        ) -> str:
+            question = HumanQuestion(
+                application_id=application_id,
+                question="Are you authorized to work in the United States?",
+                context="The application asks a required legal question.",
+                allowed_options=("Yes", "No"),
+            )
+            assert human_escalation is not None
+            assert await human_escalation(question) is None
+            raise HumanEscalationRequired(question)
+
+    database = Database(tmp_path / "data.sqlite3")
+    rendered_resume = tmp_path / "candidate" / "resumes" / "backend.pdf"
+    rendered_resume.parent.mkdir(parents=True)
+    rendered_resume.write_bytes(b"%PDF-1.4 test")
+    JobRepository(database).upsert(
+        Job(
+            id="job-ask",
+            source="test",
+            company="Acme",
+            title="Engineer",
+            url="https://example.com/jobs/ask",
+            dedupe_hash="job-ask",
+        )
+    )
+    ApplicationRepository(database).upsert_resume(
+        ResumeRecord(
+            id="resume-ask",
+            name="Backend resume",
+            base_type="python",
+            source_path="candidate/resumes/backend.pdf",
+            rendered_path="candidate/resumes/backend.pdf",
+            version="1",
+        )
+    )
+    application_id = ApplicationRepository(database).create(
+        job_id="job-ask", tier="tier_c", status="ready_for_review", resume_id="resume-ask"
+    )
+    plan = ApplicationPlan(
+        application_id=application_id,
+        job_id="job-ask",
+        eligibility=EligibilityResult(status="pass"),
+        fit=FitEvaluation(score=80),
+        importance=ImportanceEvaluation(score=80, tier="tier_c"),
+        resume=ResumeChoice(resume_id="resume-ask"),
+        quality=QualityReport(passed=True, grounding_score=1.0, style_score=1.0),
+    )
+
+    result = asyncio.run(
+        ControlledBrowserWorker(
+            provider=FakeProvider(),
+            database=database,
+            runner=FakeRunner(),
+        ).run(plan=plan, apply_url="https://example.com/apply")
+    )
+
+    assert result.status == "needs_user"
+    assert result.submitted is False
+    application = ApplicationRepository(database).get(application_id)
+    assert application is not None and application.status == "needs_user"
+    with database.session() as connection:
+        question = connection.execute(
+            "SELECT question_text, question_type "
+            "FROM application_questions WHERE application_id = ?",
+            (application_id,),
+        ).fetchone()
+        event_types = [
+            row[0]
+            for row in connection.execute(
+                "SELECT event_type FROM application_events WHERE application_id = ?",
+                (application_id,),
+            )
+        ]
+    assert question[0] == "Are you authorized to work in the United States?"
+    assert question[1] == "human_escalation"
+    assert "human_escalation_requested" in event_types
+    assert "browser_paused_for_user" in event_types

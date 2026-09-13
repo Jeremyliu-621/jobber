@@ -75,6 +75,9 @@ Built a Python service and wrote unit tests.
     packet = service.prepare(job_ids[0])
 
     assert evaluation.eligibility.status == "pass"
+    opportunity = service.get_opportunity(job_ids[0])
+    assert opportunity is not None
+    assert opportunity.sections[0].label == "qualifications"
     assert packet.plan.quality is not None and packet.plan.quality.passed is True
     assert packet.plan.resume is not None
     application = ApplicationRepository(database).get(packet.plan.application_id)
@@ -99,6 +102,8 @@ Built a Python service and wrote unit tests.
             cdp_url: str,
             max_steps: int,
             available_file_paths: list[str] | None = None,
+            application_id: str | None = None,
+            human_escalation=None,
         ) -> str:
             assert "stop before final submission" in task
             assert "https://example.com/apply" in task

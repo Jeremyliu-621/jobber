@@ -9,12 +9,23 @@ from typing import Annotated
 
 import typer
 
+from .agent_runner import AgentTask, LocalAgentError, LocalCliRunner, available_providers
+from .browser import HumanQuestion
 from .candidate import CandidateFactStore, CandidateIndexer, load_profile
 from .config import ConfigurationError, Settings
 from .db import ApplicationRepository, CandidateSourceRepository, Database, ResumeRecord
 from .discovery import AshbySource, GreenhouseSource, LeverSource
 from .discovery.sources import JobSource
+from .documents import import_document, inventory
 from .service import JobAgentService
+from .workspace import (
+    WorkspaceConfigurationError,
+    config_path,
+    effective_config,
+    initialize_workspace,
+    resolve_workspace_root,
+    update_config,
+)
 
 app = typer.Typer(help="Personal SWE job application system.")
 candidate_app = typer.Typer(help="Inspect and search the candidate brain.")
@@ -24,6 +35,8 @@ job_app = typer.Typer(help="Discover, evaluate, and list jobs.")
 application_app = typer.Typer(help="Prepare and inspect applications.")
 learning_app = typer.Typer(help="Inspect feedback and learning signals.")
 resume_app = typer.Typer(help="Manage the local resume inventory.")
+documents_app = typer.Typer(help="Inventory documents in the selected local folder.")
+agent_app = typer.Typer(help="Use a locally installed Codex or Claude CLI.")
 app.add_typer(candidate_app, name="candidate")
 app.add_typer(db_app, name="db")
 app.add_typer(config_app, name="config")
@@ -31,10 +44,57 @@ app.add_typer(job_app, name="job")
 app.add_typer(application_app, name="application")
 app.add_typer(learning_app, name="learning")
 app.add_typer(resume_app, name="resume")
+app.add_typer(documents_app, name="documents")
+app.add_typer(agent_app, name="agent")
+
+
+@app.command("init")
+def initialize(
+    workspace: Annotated[
+        Path | None, typer.Argument(help="Workspace directory to create and select.")
+    ] = None,
+    no_select: Annotated[
+        bool, typer.Option("--no-select", help="Create files without changing user config.")
+    ] = False,
+) -> None:
+    """Create a blank local workspace and select it for future commands."""
+
+    try:
+        selected = resolve_workspace_root(workspace) if workspace else None
+        created = initialize_workspace(selected, select=not no_select)
+    except Exception as error:
+        typer.echo(f"INIT FAILED: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    root = selected or resolve_workspace_root()
+    typer.echo(f"Workspace: {root}")
+    typer.echo(f"Created {len(created)} starter files.")
+    if not no_select:
+        typer.echo(f"Selected in {config_path()}")
+    typer.echo("Add verified facts to candidate/profile.yaml and documents to documents/inbox.")
+
+
+@app.command("web")
+def web_server(
+    host: Annotated[str, typer.Option("--host", help="Local bind address.")] = "127.0.0.1",
+    port: Annotated[int, typer.Option("--port", min=1, max=65535)] = 8765,
+) -> None:
+    """Serve the local research desk frontend over the existing SQLite state."""
+
+    try:
+        from .web import run_server
+
+        run_server(_root(), host=host, port=port)
+    except Exception as error:
+        typer.echo(f"WEB SERVER FAILED: {error}", err=True)
+        raise typer.Exit(code=1) from error
 
 
 def _root() -> Path:
-    return Path.cwd()
+    try:
+        return resolve_workspace_root()
+    except WorkspaceConfigurationError as error:
+        typer.echo(f"WORKSPACE CONFIG FAILED: {error}", err=True)
+        raise typer.Exit(code=1) from error
 
 
 def _database(root: Path | None = None) -> Database:
@@ -150,6 +210,144 @@ def config_check() -> None:
     typer.echo(f"browserbase_api_key: {settings.masked_browserbase_api_key}")
     typer.echo(f"browserbase_project_id: {settings.browserbase_project_id or 'not configured'}")
     typer.echo(f"browserbase_api_base_url: {settings.browserbase_api_base_url}")
+    typer.echo(f"browser_use_api_key: {settings.masked_browser_use_api_key}")
+    typer.echo(f"browser_use_model: {settings.browser_use_model}")
+    workspace = effective_config(_root())
+    typer.echo(f"workspace_root: {workspace.workspace_path}")
+    typer.echo(f"documents_root: {workspace.documents_path}")
+    typer.echo(f"agent_provider: {workspace.agent_provider}")
+    typer.echo(f"user_config: {config_path() if config_path().exists() else 'not initialized'}")
+
+
+@config_app.command("workspace")
+def config_workspace(
+    workspace: Annotated[Path, typer.Argument(help="Workspace directory to select.")],
+) -> None:
+    """Select an existing or new local workspace."""
+
+    try:
+        path = workspace.expanduser().resolve()
+        path.mkdir(parents=True, exist_ok=True)
+        update_config(workspace_root=path)
+    except Exception as error:
+        typer.echo(f"WORKSPACE CONFIG FAILED: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(f"Selected workspace: {path}")
+
+
+@config_app.command("provider")
+def config_provider(
+    provider: Annotated[str, typer.Argument(help="auto, codex, or claude.")],
+) -> None:
+    """Choose the local CLI used by agent tasks."""
+
+    normalized = provider.casefold()
+    if normalized not in {"auto", "codex", "claude"}:
+        typer.echo("PROVIDER ERROR: expected auto, codex, or claude", err=True)
+        raise typer.Exit(code=1)
+    try:
+        update_config(agent_provider=normalized)  # type: ignore[arg-type]
+    except Exception as error:
+        typer.echo(f"PROVIDER CONFIG FAILED: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(f"Local agent provider: {normalized}")
+
+
+@documents_app.command("list")
+def documents_list() -> None:
+    """Refresh and list supported files in the selected document folder."""
+
+    try:
+        records = inventory(_root())
+    except Exception as error:
+        typer.echo(f"DOCUMENT INVENTORY FAILED: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(f"Document folder: {effective_config(_root()).documents_path}")
+    if not records:
+        typer.echo("No supported documents found.")
+        return
+    for record in records:
+        typer.echo(f"{record.path} [{record.extension}; {record.size_bytes} bytes]")
+        typer.echo(f"  sha256: {record.content_hash}")
+
+
+@documents_app.command("import")
+def documents_import(
+    source: Annotated[Path, typer.Argument(help="Local document to copy into the inbox.")],
+) -> None:
+    """Copy one supported document into the selected local inbox."""
+
+    try:
+        record = import_document(source, _root())
+    except Exception as error:
+        typer.echo(f"DOCUMENT IMPORT FAILED: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(f"Imported: {record.path}")
+    typer.echo(f"SHA-256: {record.content_hash}")
+
+
+@documents_app.command("folder")
+def documents_folder(
+    folder: Annotated[Path, typer.Argument(help="Existing or new local document folder.")],
+) -> None:
+    """Select a document folder, including one outside the workspace."""
+
+    try:
+        path = folder.expanduser().resolve()
+        path.mkdir(parents=True, exist_ok=True)
+        update_config(documents_root=path)
+    except Exception as error:
+        typer.echo(f"DOCUMENT FOLDER FAILED: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(f"Selected document folder: {path}")
+
+
+@agent_app.command("check")
+def agent_check() -> None:
+    """Report which local provider CLIs are available on PATH."""
+
+    try:
+        configured = effective_config(_root()).agent_provider
+        providers = available_providers()
+    except Exception as error:
+        typer.echo(f"AGENT CHECK FAILED: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(f"configured_provider: {configured}")
+    for provider, available in providers.items():
+        typer.echo(f"{provider}: {'available' if available else 'not found'}")
+
+
+@agent_app.command("run")
+def agent_run(
+    prompt: Annotated[str, typer.Argument(help="Task prompt for the local CLI.")],
+    provider: Annotated[
+        str | None, typer.Option("--provider", help="codex or claude; defaults to local config.")
+    ] = None,
+    timeout: Annotated[int, typer.Option("--timeout", min=1, max=3600)] = 300,
+) -> None:
+    """Run one local provider task without exposing credentials to Jobber."""
+
+    selected = provider or effective_config(_root()).agent_provider
+    if selected == "auto":
+        selected = next(
+            (name for name, available in available_providers().items() if available),
+            "",
+        )
+    if selected not in {"codex", "claude"}:
+        typer.echo("AGENT RUN FAILED: choose codex or claude, or install one of them.", err=True)
+        raise typer.Exit(code=1)
+    try:
+        result = LocalCliRunner().run(
+            AgentTask(provider=selected, prompt=prompt, cwd=_root(), timeout_seconds=timeout)  # type: ignore[arg-type]
+        )
+    except LocalAgentError as error:
+        typer.echo(f"AGENT RUN FAILED: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    if result.text:
+        typer.echo(result.text)
+    if not result.success:
+        typer.echo(result.error or "local agent failed", err=True)
+        raise typer.Exit(code=1)
 
 
 @job_app.command("discover")
@@ -247,6 +445,34 @@ def job_list(
         typer.echo(f"  {job['location'] or 'location unknown'} | {job['url']}")
 
 
+@job_app.command("extract-opportunities")
+def job_extract_opportunities(
+    limit: Annotated[int, typer.Option("--limit", min=1, max=500)] = 500,
+) -> None:
+    """Materialize source-grounded, structured opportunity documents."""
+
+    try:
+        count = JobAgentService().extract_opportunities(limit=limit)
+    except Exception as error:
+        typer.echo(f"OPPORTUNITY EXTRACTION FAILED: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(f"Extracted {count} opportunity documents.")
+
+
+@job_app.command("extract-opportunity")
+def job_extract_opportunity(
+    job_id: Annotated[str, typer.Argument(help="Normalized job ID.")],
+) -> None:
+    """Extract and persist one source-grounded opportunity document."""
+
+    try:
+        opportunity = JobAgentService().materialize_opportunity(job_id)
+    except Exception as error:
+        typer.echo(f"OPPORTUNITY EXTRACTION FAILED: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(json.dumps(opportunity.model_dump(mode="json"), indent=2))
+
+
 @job_app.command("evaluate")
 def job_evaluate(job_id: Annotated[str, typer.Argument(help="Normalized job ID.")]) -> None:
     """Evaluate eligibility, fit, importance, and tier."""
@@ -283,6 +509,38 @@ def application_status(
         typer.echo(f"APPLICATION STATUS FAILED: {error}", err=True)
         raise typer.Exit(code=1) from error
     typer.echo(json.dumps(application.__dict__, indent=2))
+
+
+@application_app.command("run")
+def application_run(
+    application_id: Annotated[str, typer.Argument(help="Application ID.")],
+    apply_url: Annotated[
+        str | None, typer.Option("--apply-url", help="Override the stored application URL.")
+    ] = None,
+    max_steps: Annotated[int, typer.Option("--max-steps", min=1, max=500)] = 40,
+) -> None:
+    """Run Browser Use interactively and stop before final submission."""
+
+    def ask_human(question: HumanQuestion) -> str:
+        typer.echo("\nHuman input required")
+        typer.echo(f"Question: {question.question}")
+        if question.context:
+            typer.echo(f"Context: {question.context}")
+        if question.allowed_options:
+            typer.echo("Allowed options: " + ", ".join(question.allowed_options))
+        return typer.prompt("Answer")
+
+    try:
+        result = JobAgentService().run_browser(
+            application_id,
+            apply_url=apply_url,
+            max_steps=max_steps,
+            human_escalation=ask_human,
+        )
+    except Exception as error:
+        typer.echo(f"BROWSER RUN FAILED: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(json.dumps(result.__dict__, indent=2))
 
 
 @application_app.command("browser-links")

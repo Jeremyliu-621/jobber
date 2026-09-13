@@ -11,6 +11,8 @@ from .domain import (
     Job,
     JobCriterion,
     JobEvaluation,
+    OpportunityDocument,
+    OpportunitySection,
     QualityReport,
     ResumeChoice,
 )
@@ -26,6 +28,8 @@ __all__ = [
     "Job",
     "JobCriterion",
     "JobEvaluation",
+    "OpportunityDocument",
+    "OpportunitySection",
     "QualityReport",
     "ResumeChoice",
 ]

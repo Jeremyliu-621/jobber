@@ -20,7 +20,7 @@ education:
 
 work_authorization:
   canada:
-    authorized: null
+    authorized: true
     sponsorship_required: null
     notes: null
   usa:
